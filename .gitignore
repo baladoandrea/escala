@@ -1,0 +1,7 @@
+# Ignorar variables de entorno con credenciales
+.env
+.env.local
+.env.*.local
+
+# Ignorar datos/logs de desarrollo
+*.log

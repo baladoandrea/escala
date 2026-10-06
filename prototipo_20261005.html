@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESCALA - Visualizador de Rutas Topológicas (LCG -> MEX)</title>
+  <!-- Fuentes de Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS por CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg: '#090D16',
+              card: '#111827',
+              emerald: '#10B981',
+              terracotta: '#F97316',
+              slate: '#1E293B'
+            }
+          },
+          fontFamily: {
+            syne: ['Syne', 'sans-serif'],
+            jakarta: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#090D16] text-slate-100 font-jakarta min-h-screen flex flex-col antialiased">
+
+  <!-- Header / Navigation -->
+  <header class="border-b border-slate-800 bg-[#090D16]/90 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-emerald to-emerald-300 flex items-center justify-center font-syne font-extrabold text-slate-950 text-xl">
+          E
+        </div>
+        <div>
+          <span class="font-syne font-extrabold text-xl tracking-wider text-white">ESCALA</span>
+          <span class="block text-[10px] font-mono text-brand-emerald tracking-widest uppercase">Route Topology Engine</span>
+        </div>
+      </div>
+
+      <!-- Buscador de Ruta LCG -> MEX -->
+      <div class="flex items-center space-x-2 bg-brand-card border border-slate-700/60 rounded-xl p-1.5 shadow-inner">
+        <div class="flex items-center space-x-2 px-3 py-1 bg-slate-800/80 rounded-lg">
+          <span class="text-xs font-mono font-semibold text-brand-emerald">LCG</span>
+          <span class="text-xs text-slate-400">A Coruña</span>
+        </div>
+        <span class="text-brand-terracotta font-mono font-bold">➔</span>
+        <div class="flex items-center space-x-2 px-3 py-1 bg-slate-800/80 rounded-lg">
+          <span class="text-xs font-mono font-semibold text-brand-emerald">MEX</span>
+          <span class="text-xs text-slate-400">Ciudad de México</span>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 text-xs font-mono">
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-500/10 text-brand-emerald border border-brand-emerald/30">
+          <span class="w-2 h-2 rounded-full bg-brand-emerald animate-pulse mr-2"></span> Engine Active
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Panel Izquierdo: Mapa Canvas Interactivo -->
+    <section class="lg:col-span-7 flex flex-col space-y-4">
+      <div class="bg-brand-card border border-slate-800 rounded-2xl p-4 flex flex-col flex-1 relative overflow-hidden min-h-[420px]">
+        <div class="flex items-center justify-between mb-2 z-10">
+          <div class="flex items-center space-x-2">
+            <h2 class="font-syne text-sm font-bold text-slate-200 uppercase tracking-wider">Grafo Geodésico de Conexiones</h2>
+            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Render 2D</span>
+          </div>
+          <div class="text-xs text-slate-400 font-mono">Red Transatlántica</div>
+        </div>
+
+        <!-- Canvas interactivo animado -->
+        <div class="relative flex-1 w-full h-full rounded-xl bg-[#0b1120] border border-slate-800/80 overflow-hidden">
+          <canvas id="routeCanvas" class="w-full h-full block"></canvas>
+          
+          <!-- Leyenda flotante -->
+          <div class="absolute bottom-3 left-3 bg-slate-900/90 border border-slate-800 backdrop-blur rounded-lg p-2.5 text-[11px] font-mono space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-emerald"></span>
+              <span class="text-slate-300">Hubs Origen / Destino (LCG, MEX)</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-brand-terracotta"></span>
+              <span class="text-slate-300">Escalas Intermedias (MAD, LHR)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros Rápidos -->
+      <div class="bg-brand-card border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div class="flex items-center space-x-2">
+          <span class="text-slate-400 font-medium">Filtro Escalas:</span>
+          <button class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-500 border border-slate-800 cursor-not-allowed">Directo (0)</button>
+          <button class="px-2.5 py-1 rounded-lg bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/50 font-semibold">1 Escala</button>
+          <button class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 hover:text-white transition">2 Escalas</button>
+        </div>
+        <div class="font-mono text-slate-400 text-[11px]">
+          Máscara de Días: <span class="text-brand-emerald font-bold">1111111</span> (Diario)
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel Derecho: Opciones Calculadas -->
+    <section class="lg:col-span-5 flex flex-col space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-syne text-base font-bold text-white">Rutas Evaluadas para LCG ➔ MEX</h2>
+        <span class="text-xs font-mono text-slate-400">3 Opciones</span>
+      </div>
+
+      <!-- Opción 1: Vía MAD -->
+      <div class="bg-brand-card border-2 border-brand-emerald/60 rounded-2xl p-4 space-y-3 relative overflow-hidden shadow-lg shadow-emerald-950/20">
+        <div class="flex items-center justify-between">
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-brand-emerald/20 text-brand-emerald border border-brand-emerald/40 uppercase">
+            Recomendada • Oneworld
+          </span>
+          <span class="text-xs font-mono text-slate-400">Duración Total: <strong class="text-white">15h 30m</strong></span>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono font-bold text-brand-emerald">LCG</span>
+              <span class="text-slate-400">08:45</span>
+              <span class="text-slate-500">➔</span>
+              <span class="font-mono font-bold text-brand-terracotta">MAD</span>
+              <span class="text-slate-400">09:55</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-400">Iberia IB0523</span>
+          </div>
+
+          <div class="my-1.5 flex items-center justify-between px-3 py-1.5 bg-slate-800/80 rounded-lg border border-slate-700/50 text-[11px]">
+            <span class="text-slate-300 font-mono">Escala Madrid Barajas (T4)</span>
+            <span class="text-brand-emerald font-mono font-semibold">2h 15m (MCT OK)</span>
+          </div>
+
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono font-bold text-brand-terracotta">MAD</span>
+              <span class="text-slate-400">12:10</span>
+              <span class="text-slate-500">➔</span>
+              <span class="font-mono font-bold text-brand-emerald">MEX</span>
+              <span class="text-slate-400">18:15</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-400">Iberia IB6401</span>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
+          <span class="text-slate-400">Puntualidad (OTP): <strong class="text-emerald-400">94%</strong></span>
+          <span class="text-slate-400">Equipaje: <strong class="text-white">Directo a destino</strong></span>
+        </div>
+      </div>
+
+      <!-- Opción 2: Vía LHR -->
+      <div class="bg-brand-card border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-brand-terracotta/20 text-brand-terracotta border border-brand-terracotta/40 uppercase">
+            Self-Transfer
+          </span>
+          <span class="text-xs font-mono text-slate-400">Duración: <strong class="text-white">17h 45m</strong></span>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono font-bold text-brand-emerald">LCG</span>
+              <span class="text-slate-400">10:15</span>
+              <span class="text-slate-500">➔</span>
+              <span class="font-mono font-bold text-brand-terracotta">LHR</span>
+              <span class="text-slate-400">11:30</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-400">Vueling VY7102</span>
+          </div>
+
+          <div class="my-1.5 flex items-center justify-between px-3 py-1.5 bg-brand-terracotta/10 rounded-lg border border-brand-terracotta/30 text-[11px]">
+            <span class="text-brand-terracotta font-mono">Escala Londres Heathrow (T5)</span>
+            <span class="text-brand-terracotta font-mono font-semibold">3h 40m (Recoger maleta)</span>
+          </div>
+
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono font-bold text-brand-terracotta">LHR</span>
+              <span class="text-slate-400">15:10</span>
+              <span class="text-slate-500">➔</span>
+              <span class="font-mono font-bold text-brand-emerald">MEX</span>
+              <span class="text-slate-400">20:00</span>
+            </div>
+            <span class="text-[11px] font-mono text-slate-400">British Airways BA243</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Animación Canvas -->
+  <script>
+    const canvas = document.getElementById('routeCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const nodes = {
+      LCG: { x: 0.20, y: 0.38, label: 'A Coruña (LCG)', type: 'hub' },
+      MAD: { x: 0.32, y: 0.48, label: 'Madrid (MAD)', type: 'layover' },
+      LHR: { x: 0.28, y: 0.22, label: 'Londres (LHR)', type: 'layover' },
+      MEX: { x: 0.82, y: 0.68, label: 'Ciudad de México (MEX)', type: 'hub' }
+    };
+
+    let particleProgress = 0;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const routes = [
+        { from: nodes.LCG, to: nodes.MAD, color: '#10B981' },
+        { from: nodes.MAD, to: nodes.MEX, color: '#10B981' },
+        { from: nodes.LCG, to: nodes.LHR, color: '#F97316' },
+        { from: nodes.LHR, to: nodes.MEX, color: '#F97316' }
+      ];
+
+      routes.forEach(r => {
+        const x1 = r.from.x * w;
+        const y1 = r.from.y * h;
+        const x2 = r.to.x * w;
+        const y2 = r.to.y * h;
+        const cx = (x1 + x2) / 2;
+        const cy = Math.min(y1, y2) - 40;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.quadraticCurveTo(cx, cy, x2, y2);
+        ctx.strokeStyle = r.color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      Object.keys(nodes).forEach(key => {
+        const n = nodes[key];
+        const nx = n.x * w;
+        const ny = n.y * h;
+
+        ctx.beginPath();
+        ctx.arc(nx, ny, n.type === 'hub' ? 10 : 7, 0, Math.PI * 2);
+        ctx.fillStyle = n.type === 'hub' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(249, 115, 22, 0.2)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(nx, ny, n.type === 'hub' ? 5 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = n.type === 'hub' ? '#10B981' : '#F97316';
+        ctx.fill();
+
+        ctx.font = '11px JetBrains Mono';
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillText(key, nx - 12, ny - 14);
+      });
+
+      particleProgress = (particleProgress + 0.005) % 1;
+      const pX = (nodes.LCG.x * (1 - particleProgress) + nodes.MAD.x * particleProgress) * w;
+      const pY = (nodes.LCG.y * (1 - particleProgress) + nodes.MAD.y * particleProgress) * h;
+
+      ctx.beginPath();
+      ctx.arc(pX, pY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
