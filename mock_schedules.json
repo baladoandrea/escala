@@ -1,0 +1,30 @@
+[
+  {
+    "airline_iata": "IB",
+    "flight_number": "IB6801",
+    "origin_iata": "MAD",
+    "destination_iata": "HND",
+    "departure_time": "11:55",
+    "arrival_time": "19:10",
+    "days_offset": 1,
+    "days_of_week": "1010100",
+    "valid_from": "2026-03-30",
+    "valid_to": "2026-10-25",
+    "aircraft_type": "A350-900",
+    "mct_minutes": 90
+  },
+  {
+    "airline_iata": "EK",
+    "flight_number": "EK142",
+    "origin_iata": "MAD",
+    "destination_iata": "DXB",
+    "departure_time": "15:20",
+    "arrival_time": "00:45",
+    "days_offset": 1,
+    "days_of_week": "1111111",
+    "valid_from": "2026-01-01",
+    "valid_to": "2026-12-31",
+    "aircraft_type": "B777-300ER",
+    "mct_minutes": 60
+  }
+]

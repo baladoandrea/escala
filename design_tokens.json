@@ -1,0 +1,33 @@
+{
+  "name": "Escala Design System Tokens",
+  "version": "2.0.0",
+  "color": {
+    "background": {
+      "main": "#090D16",
+      "card": "#111827",
+      "border": "#1F2937"
+    },
+    "brand": {
+      "primary": "#10B981",
+      "accent": "#F97316"
+    },
+    "text": {
+      "highPriority": "#F8FAFC",
+      "secondary": "#9CA3AF"
+    }
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "Syne, Space Grotesk, sans-serif",
+      "weights": [700, 800]
+    },
+    "body": {
+      "fontFamily": "Plus Jakarta Sans, sans-serif",
+      "weights": [400, 500, 600]
+    },
+    "code": {
+      "fontFamily": "JetBrains Mono, monospace",
+      "weights": [600]
+    }
+  }
+}
