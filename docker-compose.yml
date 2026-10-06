@@ -38,6 +38,7 @@ services:
   route-engine:
     build:
       context: ./backend-go
+      dockerfile: Dockerfile
     container_name: escala-route-engine
     ports:
       - "8080:8080"
@@ -54,6 +55,7 @@ services:
   spatial-api:
     build:
       context: ./backend-python
+      dockerfile: Dockerfile
     container_name: escala-spatial-api
     ports:
       - "8000:8000"
@@ -61,6 +63,18 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     depends_on:
       - postgres
+
+  # Servicio 3: Interface Web Frontend en Next.js
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: escala-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - route-engine
+      - spatial-api
 
 volumes:
   neo4j_data:
