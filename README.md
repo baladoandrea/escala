@@ -6,29 +6,28 @@
 
 ## 👥 Equipo del Proyecto
 
-* **Líder de Desarrollo / Software Engineer:** Andrea Balado[cite: 1]
-* **Soporte Técnico / QA & Systems Support:** Mario García[cite: 1]
+* **Líder de Desarrollo / Software Engineer:** Andrea Balado
 
 ---
 
 ## 🎨 Identidad Visual & Design Tokens
 
-* **Noche Profunda (Fondo UI):** `#090D16`[cite: 1]
-* **Verde Esmeralda Radiactivo (Nodos / Hubs Activos):** `#10B981`[cite: 1]
-* **Naranja Terracota (Alertas / Self-Transfer / Escalas Críticas):** `#F97316`[cite: 1]
-* **Gris Grafito (Tarjetas & Paneles):** `#111827`[cite: 1]
-* **Tipografías:** `Syne` (Titulares/Logo), `Plus Jakarta Sans` (UI) y `JetBrains Mono` (Códigos IATA, MCT y Bitmasks)[cite: 1].
+* **Noche Profunda (Fondo UI):** `#090D16`
+* **Verde Esmeralda Radiactivo (Nodos / Hubs Activos):** `#10B981`
+* **Naranja Terracota (Alertas / Self-Transfer / Escalas Críticas):** `#F97316`
+* **Gris Grafito (Tarjetas & Paneles):** `#111827`
+* **Tipografías:** `Syne` (Titulares/Logo), `Plus Jakarta Sans` (UI) y `JetBrains Mono` (Códigos IATA, MCT y Bitmasks).
 
 ---
 
 ## 🛠️ Arquitectura Técnica
 
-El proyecto se compone de una arquitectura multimodular[cite: 1]:
+El proyecto se compone de una arquitectura multimodular:
 
-* **Frontend:** Next.js + Tailwind CSS + Mapbox GL / WebGL Canvas para la representación geodésica de arcos de vuelo[cite: 1].
-* **Route Engine (Go):** Servicio concurrente para recorridos en grafo (BFS) sobre la base de datos[cite: 1].
-* **Spatial & Metadata API (Python / FastAPI):** Servicio para consultas espaciales (PostGIS) y metadatos de aeropuertos[cite: 1].
-* **Base de Datos:** Neo4j (Grafos de vuelo) + PostgreSQL con extensión PostGIS[cite: 1].
+* **Frontend:** Next.js + Tailwind CSS + Mapbox GL / WebGL Canvas para la representación geodésica de arcos de vuelo.
+* **Route Engine (Go):** Servicio concurrente para recorridos en grafo (BFS) sobre la base de datos.
+* **Spatial & Metadata API (Python / FastAPI):** Servicio para consultas espaciales (PostGIS) y metadatos de aeropuertos.
+* **Base de Datos:** Neo4j (Grafos de vuelo) + PostgreSQL con extensión PostGIS.
 
 ---
 
