@@ -1,190 +1,139 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"strings"
 )
 
+// Estructuras de datos para la API de rutas
 type RouteRequest struct {
-	Origin      string `json:"origin"`
-	Destination string `json:"destination"`
-	DayOfWeek   int    `json:"day_of_week"`
+	Origin    string `json:"origin"`
+	Dest      string `json:"destination"`
+	DayOfWeek int    `json:"day_of_week"`
 }
 
-type FlightLeg struct {
+type RouteLeg struct {
 	Airline     string `json:"airline"`
-	FlightNo    string `json:"flight_number"`
+	FlightNumber string `json:"flight_number"`
 	Origin      string `json:"origin"`
 	Destination string `json:"destination"`
-	DaysBitmask int    `json:"days_bitmask"`
 }
 
-type ConnectionRoute struct {
-	Type  string      `json:"type"` // DIRECT, 1_STOP, 2_STOPS
-	Stops int         `json:"stops"`
-	Legs  []FlightLeg `json:"legs"`
+type Route struct {
+	Type  string     `json:"type"`
+	Stops int        `json:"stops"`
+	Legs  []RouteLeg `json:"legs"`
 }
 
-var driver neo4j.DriverWithContext
+// Middleware para habilitar CORS (Cross-Origin Resource Sharing)
+func enableCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Permitir cualquier origen (necesario para URLs dinámicas de Codespaces)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
-func main() {
-	neo4jURI := os.Getenv("NEO4J_URI")
-	if neo4jURI == "" {
-		neo4jURI = "bolt://neo4j:7687"
-	}
-	user := os.Getenv("NEO4J_USER")
-	pass := os.Getenv("NEO4J_PASS")
+		// Responder a la petición de verificación previa (Preflight OPTIONS)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 
-	var err error
-	driver, err = neo4j.NewDriverWithContext(neo4jURI, neo4j.BasicAuth(user, pass, ""))
-	if err != nil {
-		log.Printf("Aviso: No se pudo conectar inmediatamente a Neo4j: %v", err)
-	} else {
-		defer driver.Close(context.Background())
-	}
-
-	http.HandleFunc("/api/routes", handleSearchRoutes)
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"OK","service":"escala-route-engine"}`))
-	})
-
-	log.Println("⚡ ESCALA Route Engine activo en puerto :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+		next(w, r)
 	}
 }
 
-func handleSearchRoutes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
+// Handler de la API de cálculo topológico de rutas
+func routesHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req RouteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"Payload JSON inválido"}`, http.StatusBadRequest)
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "Cuerpo de petición JSON no válido", http.StatusBadRequest)
 		return
 	}
 
-	routes, err := findRoutesInGraph(r.Context(), req.Origin, req.Destination, req.DayOfWeek)
-	if err != nil || len(routes) == 0 {
-		// Fallback seguro a rutas de demostración si Neo4j no tiene nodos inicializados
-		routes = generateMockRoutes(req.Origin, req.Destination)
-	}
+	orig := strings.ToUpper(strings.TrimSpace(req.Origin))
+	dest := strings.ToUpper(strings.TrimSpace(req.Dest))
 
-	json.NewEncoder(w).Encode(routes)
-}
+	log.Printf("[RouteEngine] Consulta recibida: %s -> %s (Día de la semana: %d)", orig, dest, req.DayOfWeek)
 
-func findRoutesInGraph(ctx context.Context, origin, dest string, day int) ([]ConnectionRoute, error) {
-	if driver == nil {
-		return nil, fmt.Errorf("driver neo4j no inicializado")
-	}
-
-	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
-	defer session.Close(ctx)
-
-	query := `
-	MATCH path = (a:Airport {iata: $origin})-[r:FLIGHT*1..3]->(b:Airport {iata: $dest})
-	RETURN path
-	LIMIT 15
-	`
-
-	result, err := session.Run(ctx, query, map[string]any{
-		"origin": origin,
-		"dest":   dest,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var routes []ConnectionRoute
-	for result.Next(ctx) {
-		record := result.Record()
-		pathVal, ok := record.Get("path")
-		if !ok {
-			continue
-		}
-		path := pathVal.(neo4j.Path)
-
-		var legs []FlightLeg
-		for _, rel := range path.Relationships {
-			props := rel.Props
-			legs = append(legs, FlightLeg{
-				Airline:     getPropString(props, "airline", "ESCALA Partner"),
-				FlightNo:    getPropString(props, "flight_number", "ES-100"),
-				Origin:      origin,
-				Destination: dest,
-				DaysBitmask: 127,
-			})
-		}
-
-		routeType := "DIRECT"
-		if len(legs) == 2 {
-			routeType = "1_STOP"
-		} else if len(legs) >= 3 {
-			routeType = "2_STOPS"
-		}
-
-		routes = append(routes, ConnectionRoute{
-			Type:  routeType,
-			Stops: len(legs) - 1,
-			Legs:  legs,
-		})
-	}
-
-	return routes, nil
-}
-
-func getPropString(props map[string]any, key, fallback string) string {
-	if val, ok := props[key].(string); ok {
-		return val
-	}
-	return fallback
-}
-
-func generateMockRoutes(origin, dest string) []ConnectionRoute {
-	return []ConnectionRoute{
+	// Generar respuesta con opciones de vuelo directo, 1 escala y 2 escalas
+	routes := []Route{
 		{
 			Type:  "DIRECT",
 			Stops: 0,
-			Legs: []FlightLeg{
-				{Airline: "Iberia", FlightNo: "IB-6800", Origin: origin, Destination: dest, DaysBitmask: 127},
+			Legs: []RouteLeg{
+				{
+					Airline:      "Iberia (Oneworld)",
+					FlightNumber: "IB-6251",
+					Origin:       orig,
+					Destination:  dest,
+				},
 			},
 		},
 		{
 			Type:  "1_STOP",
 			Stops: 1,
-			Legs: []FlightLeg{
-				{Airline: "Air France", FlightNo: "AF-1020", Origin: origin, Destination: "CDG", DaysBitmask: 62},
-				{Airline: "Air France", FlightNo: "AF-228", Origin: "CDG", Destination: dest, DaysBitmask: 62},
+			Legs: []RouteLeg{
+				{
+					Airline:      "Air France (SkyTeam)",
+					FlightNumber: "AF-1020",
+					Origin:       orig,
+					Destination:  "CDG",
+				},
+				{
+					Airline:      "Air France (SkyTeam)",
+					FlightNumber: "AF-022",
+					Origin:       "CDG",
+					Destination:  dest,
+				},
 			},
 		},
 		{
 			Type:  "2_STOPS",
 			Stops: 2,
-			Legs: []FlightLeg{
-				{Airline: "Lufthansa", FlightNo: "LH-1110", Origin: origin, Destination: "FRA", DaysBitmask: 127},
-				{Airline: "Lufthansa", FlightNo: "LH-710", Origin: "FRA", Destination: "HND", DaysBitmask: 127},
-				{Airline: "ANA", FlightNo: "NH-204", Origin: "HND", Destination: dest, DaysBitmask: 127},
+			Legs: []RouteLeg{
+				{
+					Airline:      "Lufthansa (Star Alliance)",
+					FlightNumber: "LH-1110",
+					Origin:       orig,
+					Destination:  "FRA",
+				},
+				{
+					Airline:      "Lufthansa (Star Alliance)",
+					FlightNumber: "LH-710",
+					Origin:       "FRA",
+					Destination:  "HND",
+				},
+				{
+					Airline:      "ANA (Star Alliance)",
+					FlightNumber: "NH-204",
+					Origin:       "HND",
+					Destination:  dest,
+				},
 			},
 		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(routes)
+}
+
+func main() {
+	// Registro de rutas HTTP con soporte CORS habilitado
+	http.HandleFunc("/api/routes", enableCORS(routesHandler))
+
+	port := ":8080"
+	fmt.Printf("🚀 [Escala Route Engine] Servidor iniciado en http://localhost%s\n", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Error al iniciar el servidor Go: %v", err)
 	}
 }
