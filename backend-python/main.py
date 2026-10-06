@@ -1,52 +1,57 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import asyncpg
-import os
+from typing import List
 
-app = FastAPI(title="ESCALA Spatial & Airport API", version="1.0.0")
+app = FastAPI(
+    title="ESCALA Spatial & Airport Metadata API",
+    version="1.0.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://escala_user:escala_pass@localhost:5432/escala_db")
+class Airport(BaseModel):
+    iata: str
+    icao: str
+    name: str
+    city: str
+    country: str
+    lat: float
+    lon: float
 
-@app.on_event("startup")
-async def startup():
-    app.state.db = await asyncpg.create_pool(DATABASE_URL)
-
-@app.on_event("shutdown")
-async def shutdown():
-    await app.state.db.close()
+AIRPORTS_DATABASE = [
+    Airport(iata="MAD", icao="LEMD", name="Adolfo Suárez Madrid-Barajas", city="Madrid", country="España", lat=40.4839, lon=-3.5680),
+    Airport(iata="BCN", icao="LEBL", name="Josep Tarradellas Barcelona-El Prat", city="Barcelona", country="España", lat=41.2974, lon=2.0785),
+    Airport(iata="JFK", icao="KJFK", name="John F. Kennedy International", city="New York", country="Estados Unidos", lat=40.6413, lon=-73.7781),
+    Airport(iata="CDG", icao="LFPG", name="Charles de Gaulle", city="Paris", country="Francia", lat=48.8566, lon=2.3522),
+    Airport(iata="LHR", icao="EGLL", name="London Heathrow", city="London", country="Reino Unido", lat=51.4700, lon=-0.4543),
+    Airport(iata="HND", icao="RJTT", name="Tokyo Haneda", city="Tokyo", country="Japón", lat=35.5494, lon=139.7798),
+    Airport(iata="FRA", icao="EDDF", name="Frankfurt Airport", city="Frankfurt", country="Alemania", lat=50.0379, lon=8.5622)
+]
 
 @app.get("/health")
-async def health_check():
-    return {"status": "ok", "service": "spatial-api"}
+def health_check():
+    return {"status": "OK", "service": "escala-spatial-api"}
 
-# F-201: Búsqueda por radio geográfico de aeropuertos cercanos
-@app.get("/api/v1/airports/nearby")
-async def get_nearby_airports(
-    lat: float = Query(..., description="Latitud del origen"),
-    lon: float = Query(..., description="Longitud del origen"),
-    radius_km: float = Query(100.0, description="Radio de búsqueda en km")
-):
-    query = """
-        SELECT iata_code, name_es, name_en, city_es, city_en, country_code,
-               ST_Y(coordinates::geometry) as lat, ST_X(coordinates::geometry) as lon,
-               ST_Distance(coordinates, ST_MakePoint($1, $2)::geography) / 1000 as distance_km
-        FROM airports
-        WHERE ST_DWithin(coordinates, ST_MakePoint($1, $2)::geography, $3 * 1000)
-        ORDER BY distance_km ASC;
-    """
-    async with app.state.db.acquire() as conn:
-        rows = await conn.fetch(query, lon, lat, radius_km)
-        
-    return {
-        "count": len(rows),
-        "radius_km": radius_km,
-        "airports": [dict(row) for row in rows]
-    }
+@app.get("/api/airports/search", response_model=List[Airport])
+def search_airports(q: str = Query(..., min_length=1)):
+    query = q.lower()
+    return [
+        apt for apt in AIRPORTS_DATABASE 
+        if query in apt.iata.lower() 
+        or query in apt.name.lower() 
+        or query in apt.city.lower()
+    ]
+
+@app.get("/api/airports/{iata}", response_model=Airport)
+def get_airport_by_iata(iata: str):
+    for apt in AIRPORTS_DATABASE:
+        if apt.iata.upper() == iata.upper():
+            return apt
+    raise HTTPException(status_code=404, detail="Aeropuerto no encontrado")
